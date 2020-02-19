@@ -18,7 +18,7 @@ passport.deserializeUser(function(user, next) {
   next(null, user)
 })
 
-passport.use('ocd', new OidcStrategy({
+passport.use('openid', new OidcStrategy({
   issuer: `https://adfs-test.vgregion.se/adfs`,
   authorizationURL: `https://adfs-test.vgregion.se/adfs/oauth2/authorize/`,
   tokenURL: `https://adfs-test.vgregion.se/adfs/oauth2/token/`,
@@ -34,9 +34,9 @@ passport.use('ocd', new OidcStrategy({
 }))
 
 
-app.get("/login", passport.authenticate('ocd'))
+app.get("/login", passport.authenticate('openid'))
 
-app.get('/api/auth/adfs', passport.authenticate('ocd'), (req, res) => {
+app.get('/api/auth/adfs', passport.authenticate('openid'), (req, res) => {
   res.json({message: 'Inne!', body: req.body, user: req.user})
 })
 
