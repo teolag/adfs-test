@@ -1,6 +1,6 @@
 const express = require('express')
 const passport = require('passport')
-const {Issuer, Strategy} = require('openid-client')
+const OidcStrategy = require('passport-openidconnect').Strategy;
 const dotenv = require('dotenv')
 const session = require('express-session')
 const app = express()
@@ -18,26 +18,25 @@ passport.deserializeUser(function(user, next) {
   next(null, user)
 })
 
-Issuer.discover(process.env.DISCOVERY_URL).then(function(issuer) {
-  const client = new issuer.Client({
-    client_id: process.env.CLIENT_ID,
-    client_secret: process.env.CLIENT_SECRET,
-    redirect_uris: [process.env.REDIRECT_URL]
-  })
-  const params = {
-    /*resource: 'medlo-local',*/
-    scope: 'openid email profile allatclaims'
-  }
+passport.use('ocd', new OidcStrategy({
+  issuer: `https://adfs-test.vgregion.se/adfs`,
+  authorizationURL: `https://adfs-test.vgregion.se/adfs/oauth2/authorize/`,
+  tokenURL: `https://adfs-test.vgregion.se/adfs/oauth2/token/`,
+  userInfoURL: `https://adfs-test.vgregion.se/adfs/userinfo`,
+  clientID: process.env.CLIENT_ID,
+  clientSecret: process.env.CLIENT_SECRET,
+  callbackURL: process.env.REDIRECT_URL,
+  resource: 'medlo-local',
+  scope: `openid email profile allatclaims medlo-local`,
+}, function (issuer, sub, profile, jwtClaims, accessToken, refreshToken, tokenResponse, done) {
+  console.log(issuer, sub, profile, jwtClaims, tokenResponse)
+  done(null, profile);
+}))
 
-  passport.use('oidc', new Strategy({client, params}, (tokenset, user, done) => {
-    console.log('Response from ADFS:', tokenset, user)
-    return done(null, user)
-  }))
-})
 
-app.get("/login", passport.authenticate('oidc'))
+app.get("/login", passport.authenticate('ocd'))
 
-app.get('/api/auth/adfs', passport.authenticate('oidc'), (req, res) => {
+app.get('/api/auth/adfs', passport.authenticate('ocd'), (req, res) => {
   res.json({message: 'Inne!', body: req.body, user: req.user})
 })
 
