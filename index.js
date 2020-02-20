@@ -4,6 +4,7 @@ const {Issuer, Strategy} = require('openid-client')
 const dotenv = require('dotenv')
 const session = require('express-session')
 const app = express()
+const jwtDecode = require('jwt-decode');
 dotenv.config()
 
 app.use(session({secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true}))
@@ -18,27 +19,124 @@ passport.deserializeUser(function(user, next) {
   next(null, user)
 })
 
-Issuer.discover(process.env.DISCOVERY_URL).then(function(issuer) {
-  const client = new issuer.Client({
-    client_id: process.env.CLIENT_ID,
-    client_secret: process.env.CLIENT_SECRET,
-    redirect_uris: [process.env.REDIRECT_URL]
-  })
-  const params = {
-    /*resource: 'medlo-local',*/
-    scope: 'openid email profile allatclaims'
+app.use(express.urlencoded({extended: true}))
+app.use(express.json())
+
+app.use((req, res, next) => {
+  console.log(req.method, req.url)
+  next()
+})
+app.get("/login/vgr", passport.authenticate('vgr'))
+app.post('/api/auth/adfs', (req, res) => {
+  const json = {
+    message: 'Tillbaka VGR',
+    user: req.user,
+    query: req.query,
+    body: req.body
   }
-
-  passport.use('oidc', new Strategy({client, params}, (tokenset, user, done) => {
-    console.log('Response from ADFS:', tokenset, user)
-    return done(null, user)
-  }))
+  res.send("<pre>" + JSON.stringify(json, null, 2) + "</pre>")
 })
 
-app.get("/login", passport.authenticate('oidc'))
-
-app.get('/api/auth/adfs', passport.authenticate('oidc'), (req, res) => {
-  res.json({message: 'Inne!', body: req.body, user: req.user})
+app.get('/api/auth/adfs', passport.authenticate('vgr'), (req, res) => {
+  const json = {
+    message: 'Inne VGR!',
+    user: req.user,
+    query: req.query,
+    body: req.body
+  }
+  res.send("<pre>" + JSON.stringify(json, null, 2) + "</pre>")
 })
 
-app.listen(process.env.PORT, () => console.log(`Server started on port: ${process.env.PORT}`))
+app.get("/login/google", passport.authenticate('google'))
+app.get('/api/auth/google', passport.authenticate('google'), (req, res) => {
+  res.json({message: 'Inne Google!', body: req.body, user: req.user})
+})
+
+app.get("/login/microsoft", passport.authenticate('microsoft'))
+app.get('/api/auth/microsoft', passport.authenticate('microsoft'), (req, res) => {
+  res.json({message: 'Inne Microsoft!', body: req.body, user: req.user})
+})
+
+app.get("*", (req, res) => {
+  const html = `
+    <a href="login/vgr">VGR</a><br>
+    <a href="login/google">Google</a><br>
+    <a href="login/microsoft">Microsoft</a>
+  `
+  res.send(html)
+})
+
+
+setupFederations().then(() => {
+  app.listen(process.env.PORT, () => console.log(`Server started on port: ${process.env.PORT}`))
+})
+
+
+
+function setupFederations() {
+  return Promise.all([
+    setupVGRFederation(),
+    setupGoogleFederation(),
+    setupMicrosoftFederation()
+  ])
+}
+
+function setupVGRFederation() {
+  Issuer.discover(process.env.VGR_DISCOVERY_URI).then(function(issuer) {
+    const client = new issuer.Client({
+      client_id: process.env.VGR_CLIENT_ID,
+      client_secret: process.env.VGR_CLIENT_SECRET,
+      redirect_uris: [process.env.VGR_REDIRECT_URL],
+      response_types: ['id_token code'],
+    })
+    const params = {
+      resource: 'medlo-local',
+      scope: 'openid medlo-local', // process.env.VGR_SCOPES,
+      nonce: 'rtebeyrtydvrserv',
+      response_mode: 'form_post',
+      state: 'ougyhjblkh'
+    }
+
+    passport.use('vgr', new Strategy({client, params}, (tokenset, user, done) => {
+      console.log('Response from ADFS:', tokenset, user)
+      const accessTokenData = jwtDecode(tokenset.access_token)
+      const idTokenData = jwtDecode(tokenset.id_token)
+      return done(null, {...user, accessTokenData, idTokenData})
+    }))
+  })
+}
+
+function setupMicrosoftFederation() {
+  Issuer.discover(process.env.MICROSOFT_DISCOVERY_URI).then(function(issuer) {
+    const client = new issuer.Client({
+      client_id: process.env.MICROSOFT_CLIENT_ID,
+      client_secret: process.env.MICROSOFT_CLIENT_SECRET,
+      redirect_uris: [process.env.MICROSOFT_REDIRECT_URL],
+      response_types: ['code']
+    })
+    const params = {scope: process.env.MICROSOFT_SCOPES}
+    passport.use('microsoft', new Strategy({client, params}, (tokenset, user, done) => {
+      console.log('Response from microsoft:', tokenset, user)
+      return done(null, user)
+    }))
+  })
+}
+
+
+function setupGoogleFederation() {
+  Issuer.discover(process.env.GOOGLE_DISCOVERY_URI).then(function(issuer) {
+    const client = new issuer.Client({
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uris: [process.env.GOOGLE_REDIRECT_URL],
+      response_types: ['code']
+    })
+    const params = {scope: process.env.GOOGLE_SCOPES}
+    passport.use('google', new Strategy({client, params}, (tokenset, user, done) => {
+      console.log('Response from google:', tokenset, user)
+      return done(null, user)
+    }))
+  })
+}
+
+
