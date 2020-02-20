@@ -70,16 +70,13 @@ function setupVGRFederation() {
   Issuer.discover(process.env.VGR_DISCOVERY_URI).then(function(issuer) {
     const client = new issuer.Client({
       client_id: process.env.VGR_CLIENT_ID,
-      client_secret: process.env.VGR_CLIENT_SECRET,
       redirect_uris: [process.env.VGR_REDIRECT_URL],
       response_types: ['id_token'],
     })
     const params = {
       resource: 'medlo-local',
-      scope: 'openid medlo-local', // process.env.VGR_SCOPES,
-      nonce: 'rtebeyrtydvrserv',
+      scope: 'openid',
       response_mode: 'form_post',
-      state: 'ougyhjblkh'
     }
 
     passport.use('vgr', new Strategy({client, params}, (tokenset, user, done) => {
