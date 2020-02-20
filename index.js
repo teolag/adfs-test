@@ -28,23 +28,8 @@ app.use((req, res, next) => {
 })
 app.get("/login/vgr", passport.authenticate('vgr'))
 app.post('/api/auth/adfs', (req, res) => {
-  const json = {
-    message: 'Tillbaka VGR',
-    user: req.user,
-    query: req.query,
-    body: req.body
-  }
-  res.send("<pre>" + JSON.stringify(json, null, 2) + "</pre>")
-})
-
-app.get('/api/auth/adfs', passport.authenticate('vgr'), (req, res) => {
-  const json = {
-    message: 'Inne VGR!',
-    user: req.user,
-    query: req.query,
-    body: req.body
-  }
-  res.send("<pre>" + JSON.stringify(json, null, 2) + "</pre>")
+  const user = jwtDecode(req.body.id_token)
+  res.send("<pre>" + JSON.stringify(user, null, 2) + "</pre>")
 })
 
 app.get("/login/google", passport.authenticate('google'))
@@ -87,7 +72,7 @@ function setupVGRFederation() {
       client_id: process.env.VGR_CLIENT_ID,
       client_secret: process.env.VGR_CLIENT_SECRET,
       redirect_uris: [process.env.VGR_REDIRECT_URL],
-      response_types: ['id_token code'],
+      response_types: ['id_token'],
     })
     const params = {
       resource: 'medlo-local',
