@@ -30,7 +30,8 @@ app.get("/login/vgr", passport.authenticate('vgr'))
 app.post('/api/auth/adfs', (req, res) => {
   // VALIDATE ID_TOKEN!!!
   // USE NONCE !!!!
-  console.log({url: req.url, query:req.query, body:req.body, headers: req.headers, user: req.user})
+  const idTokenData = jwtDecode(req.body.id_token)
+  console.log({url: req.url, query:req.query, body:req.body, headers: req.headers, user: req.user, idTokenData})
   const user = jwtDecode(req.body.id_token)
   res.send("<pre>" + JSON.stringify(user, null, 2) + "</pre>")
 })
